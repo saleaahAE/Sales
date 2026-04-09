@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>سلعة — بوابة المبيعات</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --brand: #745ff2;
+        --brand-light: #ece9fe;
+        --brand-dark: #5a45d6;
+        --ok: #22c55e;
+        --err: #ef4444;
+        --bg: #f8f7fc;
+        --card: #ffffff;
+        --text: #1e1e2e;
+        --muted: #71717a;
+        --radius: 14px;
+        --shadow: 0 2px 12px rgba(116, 95, 242, 0.08);
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        font-family: 'Cairo', sans-serif;
+        font-weight: 400; background-color: var(--bg); color: var(--text);
+        min-height: 100vh; position: relative; direction: rtl; line-height: 1.6;
+      }
+      body::before {
+        content: ''; position: fixed; inset: 0;
+        background-image: url('PATTERN_URL_HERE'); background-size: 180px 180px;
+        opacity: 0.08; pointer-events: none; z-index: 0;
+      }
+      .wrapper {
+        position: relative; z-index: 1; max-width: 900px;
+        margin: 0 auto; padding: 24px 18px 60px; animation: fadeIn 0.5s ease;
+      }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+      .header { text-align: center; margin-bottom: 28px; }
+      .header img { width: 80px; height: 80px; border-radius: 20px; object-fit: contain; margin-bottom: 8px; }
+      .header h1 { font-size: 28px; font-weight: 700; color: var(--brand); margin: 0; line-height: 1.2; }
+      .header p { font-size: 14px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+
+      .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; margin-bottom: 24px; }
+      .stat-card {
+        background: var(--card); border-radius: var(--radius); padding: 18px 16px;
+        box-shadow: var(--shadow); text-align: center; border-top: 3px solid var(--brand);
+      }
+      .stat-card .num { font-size: 30px; font-weight: 700; color: var(--brand); line-height: 1.1; }
+      .stat-card .lbl { font-size: 12px; color: var(--muted); margin-top: 4px; font-weight: 600; }
+      .stat-card.time-card { border-top-color: var(--muted); }
+      .stat-card.time-card .num { font-size: 16px; color: var(--text); }
+      .stat-card.err-card { border-top-color: var(--err); }
+      .stat-card.err-card .num { color: var(--err); }
+
+      .section { background: var(--card); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); margin-bottom: 20px; }
+      .section-title { font-size: 16px; font-weight: 700; color: var(--brand); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+      .section-title span { font-size: 20px; }
+
+      .dist-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+      .dist-table th { background: var(--brand); color: #fff; font-weight: 600; padding: 10px 8px; text-align: center; }
+      .dist-table th:first-child { border-radius: 0 8px 0 0; }
+      .dist-table th:last-child { border-radius: 8px 0 0 0; }
+      .dist-table td { padding: 9px 8px; text-align: center; border-bottom: 1px solid #f0eef8; }
+      .dist-table tr:hover td { background: var(--brand-light); }
+
+      .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .btn {
+        display: flex; align-items: center; justify-content: center; gap: 6px; padding: 12px 10px;
+        border: none; border-radius: 10px; font-family: 'Cairo', sans-serif; font-weight: 600; font-size: 13px;
+        cursor: pointer; transition: all 0.2s ease; background: var(--brand); color: #fff;
+      }
+      .btn:hover { background: var(--brand-dark); transform: translateY(-1px); }
+      .btn:active { transform: scale(0.97); }
+      .btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+      .btn.outline { background: transparent; color: var(--brand); border: 2px solid var(--brand); }
+      .btn.outline:hover { background: var(--brand-light); }
+      .btn.danger { background: var(--err); }
+      .btn.danger:hover { background: #dc2626; }
+      .btn.full { grid-column: 1 / -1; }
+
+      /* Logs CSS Exactly from Template */
+      .logs-wrapper { max-height: 320px; overflow-y: auto; margin-top: 8px; }
+      .log-row { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: start; padding: 8px 4px; border-bottom: 1px solid #f0eef8; font-size: 12px; }
+      .log-row:last-child { border-bottom: none; }
+      .log-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; justify-self: center; background: var(--brand); }
+      .log-dot.ok { background: var(--ok); }
+      .log-dot.err { background: var(--err); }
+      .log-info strong { font-weight: 600; color: var(--text); }
+      .log-info .details { color: var(--muted); display: block; word-break: break-word; }
+      .log-meta { text-align: left; color: var(--muted); white-space: nowrap; font-size: 11px; }
+      .logs-actions { display: flex; gap: 8px; margin-top: 10px; }
+      .logs-actions .btn { font-size: 12px; padding: 8px 16px; }
+
+      /* Overlays */
+      .overlay { display: none; position: fixed; inset: 0; background: rgba(255, 255, 255, 0.7); z-index: 999; align-items: center; justify-content: center; flex-direction: column; gap: 14px; }
+      .overlay.show { display: flex; }
+      .spinner { width: 46px; height: 46px; border: 4px solid var(--brand-light); border-top-color: var(--brand); border-radius: 50%; animation: spin 0.7s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .overlay-text { font-size: 14px; font-weight: 600; color: var(--brand); }
+      .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); padding: 12px 28px; border-radius: 10px; color: #fff; font-family: 'Cairo', sans-serif; font-weight: 600; font-size: 14px; z-index: 1000; transition: transform 0.35s ease, opacity 0.35s ease; opacity: 0; pointer-events: none; }
+      .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+      .toast.success { background: var(--ok); }
+      .toast.error { background: var(--err); }
+
+      /* FORMS */
+      .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px; }
+      .form-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+      @media (max-width: 500px) { .btn-grid, .form-grid, .form-grid.three { grid-template-columns: 1fr; } .stats-grid { grid-template-columns: 1fr 1fr; } }
+      .field-group label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+      .field-input, .field-select { width: 100%; border: 1px solid #d4d4d8; background: #fff; font-family: 'Cairo', sans-serif; font-size: 14px; padding: 10px 12px; border-radius: 10px; outline: none; transition: 0.2s; }
+      .field-input:focus, .field-select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-light); }
+      .field-input.invalid { border-color: var(--err); background: #fef2f2; }
+      
+      .order-block { background: #f9f9fb; border: 1px solid #f0eef8; border-radius: 12px; padding: 16px; margin-bottom: 12px; position: relative; }
+      .min-display { display: block; font-size: 11px; color: var(--brand); margin-top: 6px; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <!-- Spinner Overlay -->
+    <div class="overlay" id="overlay">
+      <div class="spinner"></div>
+      <div class="overlay-text" id="overlayText">جارٍ التنفيذ...</div>
+    </div>
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <div class="wrapper">
+      <!-- Header -->
+      <div class="header">
+        <h1>سلعة</h1>
+        <p>بوابة فريق المبيعات</p>
+      </div>
+      
+      <!-- Login Section -->
+      <div class="section" id="loginContainer">
+         <div class="section-title"><span></span> تسجيل الدخول</div>
+         <div style="display:flex; gap:10px; align-items:center;">
+             <select class="field-select" id="loginSelect"><option>جارٍ التحميل...</option></select>
+             <button class="btn" onclick="doLogin()">دخول</button>
+         </div>
+      </div>
+
+      <div id="mainApp" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+           <div style="font-weight:700; color:var(--brand); font-size:16px;" id="activeRepName">--</div>
+           <button class="btn danger" onclick="doLogout()" style="padding: 6px 12px; font-size:12px;">تسجيل الخروج</button>
+        </div>
+
+        <!-- Stats Grid (5 items) -->
+        <div class="stats-grid" id="statsGrid">
+          <div class="stat-card">
+            <div class="num" id="statPerf">--</div>
+            <div class="lbl">أداء المبيعات (الطلبات)</div>
+          </div>
+          <div class="stat-card">
+            <div class="num" id="statActive">--</div>
+            <div class="lbl">مراكز/مطاعم مسجلة لي</div>
+          </div>
+          <div class="stat-card err-card">
+            <div class="num" id="statUnpaid">--</div>
+            <div class="lbl">فواتير متأخرة الدفع</div>
+          </div>
+          <div class="stat-card err-card">
+            <div class="num" id="statBlocked">--</div>
+            <div class="lbl">طلبات بحالة محظور</div>
+          </div>
+          <div class="stat-card time-card">
+            <div class="num" id="statTime">--</div>
+            <div class="lbl">آخر تحديث للبيانات</div>
+          </div>
+        </div>
+
+        <!-- NEW ORDER FORM -->
+        <div class="section">
+          <div class="section-title"><span></span> إضافة طلب جديد من المطاعم المسجلة</div>
+          <p style="color:var(--muted); font-size:12px; margin-bottom:16px;">
+            ابحث من خلال القائمة المنسدلة، وسيتم جلب تاريخ المطعم تلقائياً للمنتجات القادمة.
+          </p>
+
+          <div class="field-group" style="margin-bottom: 24px;">
+            <label>اسم المطعم *</label>
+            <!-- Native HTML Datalist allows immediately seeing and sifting through all options! -->
+            <input class="field-input" list="restsList" id="fRestaurant" placeholder="اضغط للبحث في مطاعمك..." onchange="handleRestaurantChange()" autocomplete="off" />
+            <datalist id="restsList"></datalist>
+          </div>
+
+          <div id="orderBlocksWrap"></div>
+
+          <div class="btn-grid" style="margin-bottom: 16px;">
+             <button class="btn outline full" onclick="addOrderBlock()">+ أضف يوم / طلب إضافي لهذا المطعم</button>
+             <button class="btn full" onclick="submitNewOrders()">إرسال الطلب بالكامل</button>
+          </div>
+        </div>
+
+        <!-- ADD NEW RESTAURANT -->
+        <div class="section" style="opacity: 0.6; pointer-events: none;">
+          <div class="section-title"><span></span> إضافة مطعم جديد للمراكز (قريباً)</div>
+          <p style="font-size: 13px; color: var(--muted); margin-bottom: 12px;">هذه الميزة قيد التطوير حالياً وسيتم تفعيلها لاحقاً لتجنب التكرارات.</p>
+          <div class="form-grid">
+            <div class="field-group"><label>اسم المطعم</label><input class="field-input" disabled type="text"/></div>
+            <div class="field-group"><label>تصنيف المطعم</label><input class="field-input" disabled type="text"/></div>
+            <div class="field-group"><label>النظام المستخدم</label><input class="field-input" disabled type="text"/></div>
+            <div class="field-group"><label>حجم الإستهلاك</label><input class="field-input" disabled type="number"/></div>
+          </div>
+          <button class="btn outline full" disabled>رفع المطعم الجديد للمبيعات</button>
+        </div>
+
+        <!-- INVOICES -->
+        <div class="section">
+          <div class="section-title"><span></span> فواتير متأخرة الدفع</div>
+          <div id="invTableWrap">
+            <p style="color:var(--muted); text-align:center; font-size:13px;">جارٍ تحميل الجدول...</p>
+          </div>
+        </div>
+
+        <!-- Logs -->
+        <div class="section">
+          <div class="section-title"><span></span> سجل آخر العمليات الخاصة بك</div>
+          <div class="logs-wrapper" id="logsWrap">
+            <p style="color:var(--muted); text-align:center; font-size:13px;">جارٍ التحميل...</p>
+          </div>
+          <div class="logs-actions">
+            <button class="btn outline" onclick="loadLogs()">تحديث السجل</button>
+            <button class="btn danger" onclick="doClearLogs()">مسح السجل</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function $(id) { return document.getElementById(id); }
+      function showOverlay(msg) { $('overlayText').textContent = msg || 'جارٍ التنفيذ...'; $('overlay').classList.add('show'); }
+      function hideOverlay() { $('overlay').classList.remove('show'); }
+
+      var _toastTimer = null;
+      function toast(msg, type) {
+        var el = $('toast'); el.textContent = msg; el.className = 'toast ' + (type || 'success');
+        clearTimeout(_toastTimer); requestAnimationFrame(function () { el.classList.add('show'); });
+        _toastTimer = setTimeout(function () { el.classList.remove('show'); }, 3500);
+      }
+      function esc(s) {
+        if (s === null || s === undefined) return '';
+        var d = document.createElement('div'); d.appendChild(document.createTextNode(String(s)));
+        return d.innerHTML;
+      }
+
+      function runGas(action, params, cb){
+        if (typeof google === 'undefined' || typeof google.script === 'undefined') {
+          setTimeout(function(){ cb(null, new Error("Environment not detected.")); }, 100); return;
+        }
+        var runner = google.script.run.withSuccessHandler(function(r){ cb(r, null); }).withFailureHandler(function(e){ cb(null, e); });
+        if (action === 'getSalesReps') runner.getSalesReps();
+        else if (action === 'loadDashboard') runner.loadDashboard(params);
+        else if (action === 'submitOrder') runner.submitOrder(params);
+        else if (action === 'addToCurrentRestaurantsList') runner.addToCurrentRestaurantsList(params);
+        else if (action === 'getRecentLogs') runner.getRecentLogs(params);
+        else if (action === 'clearLogs') runner.clearLogs();
+        else cb(null, new Error('Unknown action: ' + action));
+      }
+
+      /* ══ INITIALIZATION ══ */
+      window.onload = function(){
+        var myRep = localStorage.getItem('mySalesRep');
+        if (!myRep) {
+          $('loginContainer').style.display = 'block';
+          $('mainApp').style.display = 'none';
+          runGas('getSalesReps', null, function(r, err){
+             var sel = $('loginSelect');
+             if(err || !r || !r.ok) { sel.innerHTML = '<option value="">خطأ بالاتصال</option>'; return; }
+             sel.innerHTML = '<option value="">-- اختر من القائمة --</option>';
+             r.salesReps.forEach(rep => sel.innerHTML += '<option value="'+esc(rep)+'">'+esc(rep)+'</option>');
+          });
+        } else {
+          loginUI(myRep);
+        }
+      };
+
+      function doLogin(){
+        var rep = $('loginSelect').value;
+        if(!rep) return;
+        localStorage.setItem('mySalesRep', rep); 
+        loginUI(rep);
+      }
+      function doLogout() {
+        localStorage.removeItem('mySalesRep'); 
+        location.reload(); // Hard reload is safe here to clear memory explicitly
+      }
+      function loginUI(rep) {
+        $('loginContainer').style.display = 'none'; $('mainApp').style.display = 'block';
+        $('activeRepName').textContent = 'مرحباً، '+ rep; 
+        loadDashboard(); loadLogs();
+      }
+
+      var _myRestaurants = [];
+      var _headers = [];
+      var _dropdowns = {};
+      var _minPricesList = [];
+      var _activeLastOrderRaw = null; 
+      let _blockCount = 0;
+
+      function loadDashboard() {
+        var rep = localStorage.getItem('mySalesRep');
+        if(!rep) return;
+        showOverlay('جلب بياناتك من النظام...');
+        
+        runGas('loadDashboard', rep, function(r, err){
+          hideOverlay();
+          if(err || !r || !r.ok) { alert("Error: " + (err?err.message:(r?r.message:'Unknown'))); return; }
+
+          $('statPerf').textContent    = r.stats.performance      || 0;
+          $('statActive').textContent  = r.stats.customers        || 0;
+          $('statUnpaid').textContent  = r.stats.unpaidInvoices   || 0;
+          $('statBlocked').textContent = r.stats.blockedOrders    || 0;
+          $('statTime').textContent    = r.stats.now              || '--';
+
+          _myRestaurants = r.myRestaurants || [];
+          _headers = r.headers || [];
+          _dropdowns = r.dropdowns || { brands:[], products:[], sizes:[] };
+          _minPricesList = r.minPricesList || []; 
+          
+          /* Native Client-Side Datalist */
+          var listHtml = '';
+          _myRestaurants.forEach(m => listHtml += '<option value="'+esc(m.restaurantName)+'">');
+          $('restsList').innerHTML = listHtml;
+
+          renderInvoices(r.invoices || []);
+          $('orderBlocksWrap').innerHTML = ''; _activeLastOrderRaw = null; $('fRestaurant').value = '';
+          addOrderBlock(); 
+          toast('تم مزامنة البيانات ✅', 'success');
+        });
+      }
+
+      function handleRestaurantChange() {
+         var v = $('fRestaurant').value;
+         var match = _myRestaurants.find(m => m.restaurantName === v);
+         if(match) {
+             _activeLastOrderRaw = match.lastOrderRaw;
+             document.querySelectorAll('.order-block').forEach(b => applyAutofillToBlock(b, _activeLastOrderRaw));
+         }
+      }
+
+      function addOrderBlock() {
+        _blockCount++;
+        var d = document.createElement('div');
+        d.className = 'order-block'; d.id = 'block_' + _blockCount;
+        
+        var rmBtn = _blockCount > 1 ? '<button class="btn danger" style="position:absolute; top:12px; left:12px; font-size:11px; padding:4px 8px" onclick="this.parentElement.remove()">حذف الطلب</button>' : '';
+        var ds = _dropdowns;
+        var mkOpts = arr => '<option value="">--</option>' + arr.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('');
+        
+        d.innerHTML = rmBtn + `
+          <div class="form-grid three">
+            <div class="field-group"><label>تاريخ التوصيل *</label><input class="field-input f-date" type="date" /></div>
+            <div class="field-group"><label>العلامة *</label><select class="field-select f-brand" onchange="runPriceCheck(this)">${mkOpts(ds.brands)}</select></div>
+            <div class="field-group"><label>المنتج *</label><select class="field-select f-product" onchange="runPriceCheck(this)">${mkOpts(ds.products)}</select></div>
+          </div>
+          <div class="form-grid three" style="margin-top:12px">
+            <div class="field-group"><label>المقاس *</label><select class="field-select f-size" onchange="runPriceCheck(this)">${mkOpts(ds.sizes)}</select></div>
+            <div class="field-group"><label>السعر للوحدة (بعد الضريبة) *</label><input class="field-input f-price" type="text" inputmode="decimal" oninput="runPriceCheck(this)" /></div>
+            <div class="field-group"><label>الكمية *</label><input class="field-input f-qty" type="number" oninput="runPriceCheck(this)" /></div>
+          </div>
+          <div class="form-grid three" style="margin-top:12px; background:#f0f4f8; padding:12px; border-radius:10px;">
+            <div class="field-group"><label style="color:#4b5563;">الحد الأدنى (TM)</label><input class="field-input f-min" type="text" readonly style="background:transparent; border:none; font-weight:700; color:var(--brand); padding:0; outline:none;" /></div>
+            <div class="field-group"><label style="color:#4b5563;">الإجمالي</label><input class="field-input f-total" type="text" readonly style="background:transparent; border:none; font-weight:700; color:var(--text); padding:0; outline:none;" /></div>
+            <div></div>
+          </div>
+        `;
+        $('orderBlocksWrap').appendChild(d);
+        if (_activeLastOrderRaw) applyAutofillToBlock(d, _activeLastOrderRaw);
+      }
+
+      function applyAutofillToBlock(block, rawArray) {
+          if (!rawArray || !_headers.length) return;
+          var hr = name => _headers.indexOf(name);
+          let hB = hr('براند'), hP = hr('المنتج'), hQ = hr('الكمية');
+          
+          let hS = hr('المقاس'); 
+          // Explicit Check for explicit "Last Size" headers (like 'last size', J)
+          if(hr('Last Size') > -1) hS = hr('Last Size');
+          else if(rawArray[9] !== undefined && String(rawArray[9]).trim() !== '') hS = 9; // Fallback to explicitly J
+
+          var pCandidates = ['السعر', 'السعر للوحدة (بعد الضريبة)', 'Price', 'Last Price'];
+          let hPr = -1;
+          for(let c of pCandidates) { if (hr(c) > -1) { hPr = hr(c); break; } }
+          // Fallback to explicitly AI (index 34) if nothing exists or if explicitly requested
+          if(rawArray[34] !== undefined && String(rawArray[34]).trim() !== '') hPr = 34; 
+          
+          if(hB > -1 && rawArray[hB] !== undefined) block.querySelector('.f-brand').value = rawArray[hB];
+          if(hP > -1 && rawArray[hP] !== undefined) block.querySelector('.f-product').value = rawArray[hP];
+          if(hS > -1 && rawArray[hS] !== undefined) block.querySelector('.f-size').value = rawArray[hS];
+          if(hPr > -1 && rawArray[hPr] !== undefined) block.querySelector('.f-price').value = rawArray[hPr];
+          if(hQ > -1 && rawArray[hQ] !== undefined) block.querySelector('.f-qty').value = rawArray[hQ];
+          runPriceCheck(block.querySelector('.f-brand')); 
+      }
+
+      function runPriceCheck(el) {
+         var block = el.closest('.order-block');
+         
+         var rawSize = block.querySelector('.f-size').value || '';
+         var cleanSize = rawSize.toLowerCase().replace(/g/g, ''); // Slice the 'g' for fuzzy matching
+         
+         var terms = [ 
+             block.querySelector('.f-brand').value, 
+             block.querySelector('.f-product').value, 
+             cleanSize 
+         ].filter(Boolean).map(x => String(x).toLowerCase());
+         
+         var min = 0;
+         if (terms.length > 0) {
+             for(var i=0; i<_minPricesList.length; i++) {
+                  var n = String(_minPricesList[i].name).toLowerCase();
+                  if(terms.every(t => n.includes(t))) { min = _minPricesList[i].min; break; }
+             }
+         }
+         
+         var priceInp = block.querySelector('.f-price');
+         var qtyInp = block.querySelector('.f-qty');
+         
+         // Fix Arabic numerals and comma to generic Latin validation form
+         var rVal = priceInp.value.replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[٫,]/g, '.');
+         if (rVal !== priceInp.value) {
+            var ss = priceInp.selectionStart, se = priceInp.selectionEnd;
+            priceInp.value = rVal;
+            try { priceInp.setSelectionRange(ss, se); } catch(e){}
+         }
+         
+         var minBox = block.querySelector('.f-min');
+         var totBox = block.querySelector('.f-total');
+         
+         var pVal = parseFloat(priceInp.value) || 0;
+         var qVal = parseFloat(qtyInp.value) || 0;
+         
+         // Set Total box strictly to 2 decimal points
+         if (pVal > 0 && qVal > 0) totBox.value = (pVal * qVal).toFixed(2);
+         else totBox.value = '';
+         
+         if (min > 0) {
+             minBox.value = min;
+             
+             var isBelowFloor = pVal > 0 && pVal < min;
+             var isBadDecimals = priceInp.value && !/^\d+(\.\d{1,2})?$/.test(priceInp.value);
+             
+             if (isBelowFloor || isBadDecimals) priceInp.classList.add('invalid');
+             else priceInp.classList.remove('invalid');
+         } else { 
+             minBox.value = ''; 
+             var isBadDecimals = priceInp.value && !/^\d+(\.\d{1,2})?$/.test(priceInp.value);
+             if (isBadDecimals) priceInp.classList.add('invalid');
+             else priceInp.classList.remove('invalid'); 
+         }
+      }
+
+      function submitNewOrders(){
+        var rep = localStorage.getItem('mySalesRep');
+        var rName = $('fRestaurant').value.trim();
+        if(!rName) { toast('حدد اسم المطعم أولاً', 'error'); return; }
+        
+        var blocks = document.querySelectorAll('.order-block');
+        var payloads = []; var errors = false;
+        blocks.forEach(function(b){
+           var d = b.querySelector('.f-date').value, br = b.querySelector('.f-brand').value, pr = b.querySelector('.f-product').value;
+           var s = b.querySelector('.f-size').value, q = b.querySelector('.f-qty').value, unit = b.querySelector('.f-price').value;
+           if(!d || !br || !pr || !s || !q || !unit) errors = true;
+           payloads.push({ restaurantName: rName, lastOrderRaw: _activeLastOrderRaw || [], delivDate: d, brand: br, product: pr, size: s, qty: q, unitPrice: unit });
+        });
+        
+        if(errors) { toast('الرجاء تعبئة جميع الحقول!', 'error'); return; }
+        
+        showOverlay('الحفظ في قاعدة البيانات...');
+        runGas('submitOrder', {rep: rep, payloads: payloads}, function(res, err){
+          hideOverlay();
+          if(err || !res.ok) { alert(err?err.message:res.message); return; }
+          toast('تم الفوترة بنجاح (#'+res.orderNumber+')', 'success');
+          loadDashboard(); loadLogs(); 
+        });
+      }
+
+      function submitNewRestaurant() {
+        var rep = localStorage.getItem('mySalesRep');
+        var p = { name: $('nLoc').value, type: $('nType').value, systemUsed: $('nSys').value, consumption: $('nCons').value, branches: $('nBr').value, activeBranches: $('nAct').value };
+        if(!p.name) return toast('اسم المطعم مطلوب للإضافة', 'error');
+        showOverlay('جاري الإضافة...');
+        runGas('addToCurrentRestaurantsList', {rep:rep, payload:p}, function(r, e){
+           hideOverlay();
+           if(e || !r.ok) { alert(e?e.message:r.message); return; }
+           toast('تمت الإضافة للمراكز!');
+           ['nLoc','nType','nSys','nCons','nBr','nAct'].forEach(id => $(id).value = '');
+           loadDashboard(); loadLogs();
+        });
+      }
+
+      function renderInvoices(rows){
+        var wrap = $('invTableWrap');
+        if(!rows || rows.length === 0){ wrap.innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px">لا توجد فواتير متأخرة</p>'; return; }
+        var html = '<table class="dist-table"><thead><tr><th>المطعم</th><th>رقم الفاتورة</th><th>المبلغ</th></tr></thead><tbody>';
+        rows.forEach(inv => html += '<tr><td>'+esc(inv.restaurant)+'</td><td>'+esc(inv.invoiceNo)+'</td><td>'+esc(inv.amount)+'</td></tr>');
+        wrap.innerHTML = html + '</tbody></table>';
+      }
+
+      function loadLogs() {
+        var rep = localStorage.getItem('mySalesRep');
+        if(!rep) return;
+        runGas('getRecentLogs', rep, function (r, err) {
+            var wrap = $('logsWrap');
+            if (err || !r || !r.ok || !r.logs || r.logs.length === 0) {
+              wrap.innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px">لا توجد سجلات بعد</p>'; return;
+            }
+            var html = '';
+            for (var i = 0; i < r.logs.length; i++) {
+              var lg = r.logs[i];
+              var cls = lg.status === 'OK' ? 'ok' : 'err';
+              html += '<div class="log-row"><div class="log-dot ' + cls + '"></div><div class="log-info">';
+              html += '<strong>' + esc(lg.task) + '</strong><span class="details">' + esc(lg.details) + '</span></div>';
+              html += '<div class="log-meta">' + esc(lg.timestamp) + '<br>' + (lg.duration || '0') + ' ث</div></div>';
+            }
+            wrap.innerHTML = html;
+        });
+      }
+
+      function doClearLogs() {
+        if (!confirm('هل تريد مسح جميع السجلات؟')) return;
+        showOverlay('مسح السجل...');
+        runGas('clearLogs', null, function (r, e) {
+            hideOverlay();
+            if (r && r.ok) { toast('تمت الإزالة', 'success'); loadLogs(); } 
+            else toast('خطأ في إزالة السجل', 'error');
+        });
+      }
+    </script>
+  </body>
+</html>
