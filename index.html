@@ -115,6 +115,32 @@
       
       .order-block { background: #f9f9fb; border: 1px solid #f0eef8; border-radius: 12px; padding: 16px; margin-bottom: 12px; position: relative; }
       .min-display { display: block; font-size: 11px; color: var(--brand); margin-top: 6px; font-weight: 700; }
+
+      /* ── Shimmer ── */
+      .shimmer-line {
+        display: block;
+        height: 1.1em;
+        width: 52%;
+        margin: 4px auto 0;
+        border-radius: 5px;
+        background: linear-gradient(90deg, var(--brand-light) 25%, #dbd5fa 50%, var(--brand-light) 75%);
+        background-size: 200% 100%;
+        animation: shim 1.3s ease-in-out infinite;
+      }
+      .shimmer-block {
+        height: 70px;
+        border-radius: 10px;
+        background: linear-gradient(90deg, var(--brand-light) 25%, #dbd5fa 50%, var(--brand-light) 75%);
+        background-size: 200% 100%;
+        animation: shim 1.3s ease-in-out infinite;
+        margin-bottom: 8px;
+      }
+      .shimmer-block.sm { height: 44px; opacity: 0.65; }
+      .shimmer-block.xs { height: 30px; opacity: 0.4; }
+      @keyframes shim {
+        0%   { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
     </style>
   </head>
   <body>
@@ -181,7 +207,6 @@
 
           <div class="field-group" style="margin-bottom: 24px;">
             <label>اسم المطعم *</label>
-            <!-- Native HTML Datalist allows immediately seeing and sifting through all options! -->
             <input class="field-input" list="restsList" id="fRestaurant" placeholder="اضغط للبحث في مطاعمك..." onchange="handleRestaurantChange()" autocomplete="off" />
             <datalist id="restsList"></datalist>
           </div>
@@ -211,7 +236,9 @@
         <div class="section">
           <div class="section-title"><span></span> فواتير متأخرة الدفع</div>
           <div id="invTableWrap">
-            <p style="color:var(--muted); text-align:center; font-size:13px;">جارٍ تحميل الجدول...</p>
+            <div class="shimmer-block"></div>
+            <div class="shimmer-block sm"></div>
+            <div class="shimmer-block xs"></div>
           </div>
         </div>
 
@@ -219,7 +246,9 @@
         <div class="section">
           <div class="section-title"><span></span> سجل آخر العمليات الخاصة بك</div>
           <div class="logs-wrapper" id="logsWrap">
-            <p style="color:var(--muted); text-align:center; font-size:13px;">جارٍ التحميل...</p>
+            <div class="shimmer-block"></div>
+            <div class="shimmer-block sm"></div>
+            <div class="shimmer-block xs"></div>
           </div>
           <div class="logs-actions">
             <button class="btn outline" onclick="loadLogs()">تحديث السجل</button>
@@ -230,6 +259,15 @@
     </div>
 
     <script>
+      /* ══════════════════════════════════════════════
+         ENVIRONMENT DETECTION & TRANSPORT LAYER
+         - IS_GAS  : running inside Google Apps Script iframe → use google.script.run
+         - !IS_GAS : running on GitHub Pages / localhost   → use fetch GET to GAS web app
+      ══════════════════════════════════════════════ */
+      var IS_GAS    = (typeof google !== 'undefined' && typeof google.script !== 'undefined');
+      var GAS_WEB_URL = 'https://script.google.com/a/macros/saleaah.com/s/AKfycbyIzOpOO2uWRBcxVC71ewif3BNVWQoATp1gx3LI8JHUyMZo5eVYm6udVZONAzF7f7CY/exec'; // ← paste your /exec URL after deploying
+      var SECRET    = 'SALEAAH_SECRET_GAS';
+
       function $(id) { return document.getElementById(id); }
       function showOverlay(msg) { $('overlayText').textContent = msg || 'جارٍ التنفيذ...'; $('overlay').classList.add('show'); }
       function hideOverlay() { $('overlay').classList.remove('show'); }
@@ -246,18 +284,65 @@
         return d.innerHTML;
       }
 
-      function runGas(action, params, cb){
-        if (typeof google === 'undefined' || typeof google.script === 'undefined') {
-          setTimeout(function(){ cb(null, new Error("Environment not detected.")); }, 100); return;
+      /* ══ UNIFIED GAS CALLER ══
+         In GAS context  → google.script.run (no secret needed; Google OAuth protects it)
+         In HTTP context → fetch GET with secret + action + JSON-encoded params in URL
+      */
+      function runGas(action, params, cb) {
+        if (IS_GAS) {
+          var runner = google.script.run
+            .withSuccessHandler(function(r) { cb(r, null); })
+            .withFailureHandler(function(e) { cb(null, e); });
+          if      (action === 'getSalesReps')               runner.getSalesReps();
+          else if (action === 'loadDashboardFast')           runner.loadDashboardFast(params);
+          else if (action === 'loadDashboardLazy')           runner.loadDashboardLazy(params);
+          else if (action === 'submitOrder')                 runner.submitOrder(params);
+          else if (action === 'addToCurrentRestaurantsList') runner.addToCurrentRestaurantsList(params);
+          else if (action === 'getRecentLogs')               runner.getRecentLogs(params);
+          else if (action === 'clearLogs')                   runner.clearLogs();
+          else cb(null, new Error('Unknown action: ' + action));
+        } else {
+          /* HTTP GET — works across origins without CORS preflight */
+          var url = GAS_WEB_URL
+            + '?secret=' + encodeURIComponent(SECRET)
+            + '&action=' + encodeURIComponent(action);
+          if (params !== null && params !== undefined) {
+            url += '&params=' + encodeURIComponent(JSON.stringify(params));
+          }
+          fetch(url)
+            .then(function(r) { return r.json(); })
+            .then(function(data) { cb(data, null); })
+            .catch(function(err) { cb(null, err); });
         }
-        var runner = google.script.run.withSuccessHandler(function(r){ cb(r, null); }).withFailureHandler(function(e){ cb(null, e); });
-        if (action === 'getSalesReps') runner.getSalesReps();
-        else if (action === 'loadDashboard') runner.loadDashboard(params);
-        else if (action === 'submitOrder') runner.submitOrder(params);
-        else if (action === 'addToCurrentRestaurantsList') runner.addToCurrentRestaurantsList(params);
-        else if (action === 'getRecentLogs') runner.getRecentLogs(params);
-        else if (action === 'clearLogs') runner.clearLogs();
-        else cb(null, new Error('Unknown action: ' + action));
+      }
+
+      /* ══ SHIMMER HELPERS ══ */
+      function showStatsShimmer() {
+        ['statPerf','statActive','statUnpaid','statBlocked','statTime'].forEach(function(id) {
+          $(id).innerHTML = '<span class="shimmer-line"></span>';
+        });
+      }
+      function showInvoicesShimmer() {
+        $('invTableWrap').innerHTML =
+          '<div class="shimmer-block"></div>' +
+          '<div class="shimmer-block sm"></div>' +
+          '<div class="shimmer-block xs"></div>';
+      }
+      function showLogsShimmer() {
+        $('logsWrap').innerHTML =
+          '<div class="shimmer-block"></div>' +
+          '<div class="shimmer-block sm"></div>' +
+          '<div class="shimmer-block xs"></div>';
+      }
+
+      /* Render stats — unpaidInvoices is filled separately by lazy call */
+      function renderStatsFast(stats) {
+        $('statPerf').textContent    = stats.performance   != null ? stats.performance   : '--';
+        $('statActive').textContent  = stats.customers     != null ? stats.customers     : '--';
+        $('statBlocked').textContent = stats.blockedOrders != null ? stats.blockedOrders : '--';
+        $('statTime').textContent    = stats.now           || '--';
+        /* statUnpaid keeps shimmer until lazy resolves */
+        $('statUnpaid').innerHTML    = '<span class="shimmer-line"></span>';
       }
 
       /* ══ INITIALIZATION ══ */
@@ -270,7 +355,9 @@
              var sel = $('loginSelect');
              if(err || !r || !r.ok) { sel.innerHTML = '<option value="">خطأ بالاتصال</option>'; return; }
              sel.innerHTML = '<option value="">-- اختر من القائمة --</option>';
-             r.salesReps.forEach(rep => sel.innerHTML += '<option value="'+esc(rep)+'">'+esc(rep)+'</option>');
+             r.salesReps.forEach(function(rep) {
+               sel.innerHTML += '<option value="'+esc(rep)+'">'+esc(rep)+'</option>';
+             });
           });
         } else {
           loginUI(myRep);
@@ -280,64 +367,97 @@
       function doLogin(){
         var rep = $('loginSelect').value;
         if(!rep) return;
-        localStorage.setItem('mySalesRep', rep); 
+        localStorage.setItem('mySalesRep', rep);
         loginUI(rep);
       }
       function doLogout() {
-        localStorage.removeItem('mySalesRep'); 
-        location.reload(); // Hard reload is safe here to clear memory explicitly
+        localStorage.removeItem('mySalesRep');
+        location.reload();
       }
       function loginUI(rep) {
-        $('loginContainer').style.display = 'none'; $('mainApp').style.display = 'block';
-        $('activeRepName').textContent = 'مرحباً، '+ rep; 
-        loadDashboard(); loadLogs();
+        $('loginContainer').style.display = 'none';
+        $('mainApp').style.display = 'block';
+        $('activeRepName').textContent = 'مرحباً، ' + rep;
+        /* Show shimmers immediately so there's no blank flash */
+        showStatsShimmer();
+        showInvoicesShimmer();
+        showLogsShimmer();
+        loadDashboard();
+        loadLogs();
       }
 
-      var _myRestaurants = [];
-      var _headers = [];
-      var _dropdowns = {};
-      var _minPricesList = [];
-      var _activeLastOrderRaw = null; 
-      let _blockCount = 0;
+      var _myRestaurants   = [];
+      var _headers         = [];
+      var _dropdowns       = {};
+      var _minPricesList   = [];
+      var _activeLastOrderRaw = null;
+      var _blockCount      = 0;
 
+      /* ══ SPLIT DASHBOARD LOAD ══
+         Fast call  → stats (perf/customers/blocked/time) + restaurants + dropdowns + minPrices
+                      → form is usable the moment this resolves
+         Lazy call  → invoices only (separate sheet, heavier for some reps)
+                      → fires immediately after fast, fills invoice table + unpaid stat
+         Both calls fire in parallel from the GAS side perspective; fast just returns sooner.
+      */
       function loadDashboard() {
         var rep = localStorage.getItem('mySalesRep');
-        if(!rep) return;
-        showOverlay('جلب بياناتك من النظام...');
-        
-        runGas('loadDashboard', rep, function(r, err){
-          hideOverlay();
-          if(err || !r || !r.ok) { alert("Error: " + (err?err.message:(r?r.message:'Unknown'))); return; }
+        if (!rep) return;
 
-          $('statPerf').textContent    = r.stats.performance      || 0;
-          $('statActive').textContent  = r.stats.customers        || 0;
-          $('statUnpaid').textContent  = r.stats.unpaidInvoices   || 0;
-          $('statBlocked').textContent = r.stats.blockedOrders    || 0;
-          $('statTime').textContent    = r.stats.now              || '--';
+        /* ── FAST ── */
+        runGas('loadDashboardFast', rep, function(r, err) {
+          if (err || !r || !r.ok) {
+            ['statPerf','statActive','statBlocked','statTime'].forEach(function(id){
+              $(id).textContent = '!';
+            });
+            toast('خطأ في تحميل البيانات', 'error');
+            return;
+          }
 
-          _myRestaurants = r.myRestaurants || [];
-          _headers = r.headers || [];
-          _dropdowns = r.dropdowns || { brands:[], products:[], sizes:[] };
-          _minPricesList = r.minPricesList || []; 
-          
-          /* Native Client-Side Datalist */
+          renderStatsFast(r.stats);
+
+          _myRestaurants  = r.myRestaurants  || [];
+          _headers        = r.headers        || [];
+          _dropdowns      = r.dropdowns      || { brands:[], products:[], sizes:[] };
+          _minPricesList  = r.minPricesList  || [];
+
+          /* Build datalist for restaurant search */
           var listHtml = '';
-          _myRestaurants.forEach(m => listHtml += '<option value="'+esc(m.restaurantName)+'">');
+          _myRestaurants.forEach(function(m) {
+            listHtml += '<option value="' + esc(m.restaurantName) + '">';
+          });
           $('restsList').innerHTML = listHtml;
 
-          renderInvoices(r.invoices || []);
-          $('orderBlocksWrap').innerHTML = ''; _activeLastOrderRaw = null; $('fRestaurant').value = '';
-          addOrderBlock(); 
-          toast('تم مزامنة البيانات ✅', 'success');
+          /* Reset order form */
+          $('orderBlocksWrap').innerHTML = '';
+          _activeLastOrderRaw = null;
+          $('fRestaurant').value = '';
+          addOrderBlock();
+
+          toast('جاهز للطلبات ✅', 'success');
+
+          /* ── LAZY (fires right after fast resolves) ── */
+          runGas('loadDashboardLazy', rep, function(r2, err2) {
+            if (err2 || !r2 || !r2.ok) {
+              renderInvoices([]);
+              $('statUnpaid').textContent = '?';
+              return;
+            }
+            var invs = r2.invoices || [];
+            renderInvoices(invs);
+            $('statUnpaid').textContent = invs.length;
+          });
         });
       }
 
       function handleRestaurantChange() {
          var v = $('fRestaurant').value;
-         var match = _myRestaurants.find(m => m.restaurantName === v);
-         if(match) {
+         var match = _myRestaurants.find(function(m) { return m.restaurantName === v; });
+         if (match) {
              _activeLastOrderRaw = match.lastOrderRaw;
-             document.querySelectorAll('.order-block').forEach(b => applyAutofillToBlock(b, _activeLastOrderRaw));
+             document.querySelectorAll('.order-block').forEach(function(b) {
+               applyAutofillToBlock(b, _activeLastOrderRaw);
+             });
          }
       }
 
@@ -348,7 +468,11 @@
         
         var rmBtn = _blockCount > 1 ? '<button class="btn danger" style="position:absolute; top:12px; left:12px; font-size:11px; padding:4px 8px" onclick="this.parentElement.remove()">حذف الطلب</button>' : '';
         var ds = _dropdowns;
-        var mkOpts = arr => '<option value="">--</option>' + arr.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('');
+        var mkOpts = function(arr) {
+          return '<option value="">--</option>' + arr.map(function(x) {
+            return '<option value="'+esc(x)+'">'+esc(x)+'</option>';
+          }).join('');
+        };
         
         d.innerHTML = rmBtn + `
           <div class="form-grid three">
@@ -373,53 +497,54 @@
 
       function applyAutofillToBlock(block, rawArray) {
           if (!rawArray || !_headers.length) return;
-          var hr = name => _headers.indexOf(name);
-          let hB = hr('براند'), hP = hr('المنتج'), hQ = hr('الكمية');
+          var hr = function(name) { return _headers.indexOf(name); };
+          var hB = hr('براند'), hP = hr('المنتج'), hQ = hr('الكمية');
           
-          let hS = hr('المقاس'); 
-          // Explicit Check for explicit "Last Size" headers (like 'last size', J)
-          if(hr('Last Size') > -1) hS = hr('Last Size');
-          else if(rawArray[9] !== undefined && String(rawArray[9]).trim() !== '') hS = 9; // Fallback to explicitly J
+          var hS = hr('المقاس');
+          if (hr('Last Size') > -1) hS = hr('Last Size');
+          else if (rawArray[9] !== undefined && String(rawArray[9]).trim() !== '') hS = 9;
 
           var pCandidates = ['السعر', 'السعر للوحدة (بعد الضريبة)', 'Price', 'Last Price'];
-          let hPr = -1;
-          for(let c of pCandidates) { if (hr(c) > -1) { hPr = hr(c); break; } }
-          // Fallback to explicitly AI (index 34) if nothing exists or if explicitly requested
-          if(rawArray[34] !== undefined && String(rawArray[34]).trim() !== '') hPr = 34; 
+          var hPr = -1;
+          for (var c = 0; c < pCandidates.length; c++) {
+            if (hr(pCandidates[c]) > -1) { hPr = hr(pCandidates[c]); break; }
+          }
+          if (rawArray[34] !== undefined && String(rawArray[34]).trim() !== '') hPr = 34;
           
-          if(hB > -1 && rawArray[hB] !== undefined) block.querySelector('.f-brand').value = rawArray[hB];
-          if(hP > -1 && rawArray[hP] !== undefined) block.querySelector('.f-product').value = rawArray[hP];
-          if(hS > -1 && rawArray[hS] !== undefined) block.querySelector('.f-size').value = rawArray[hS];
-          if(hPr > -1 && rawArray[hPr] !== undefined) block.querySelector('.f-price').value = rawArray[hPr];
-          if(hQ > -1 && rawArray[hQ] !== undefined) block.querySelector('.f-qty').value = rawArray[hQ];
-          runPriceCheck(block.querySelector('.f-brand')); 
+          if (hB  > -1 && rawArray[hB]  !== undefined) block.querySelector('.f-brand').value   = rawArray[hB];
+          if (hP  > -1 && rawArray[hP]  !== undefined) block.querySelector('.f-product').value = rawArray[hP];
+          if (hS  > -1 && rawArray[hS]  !== undefined) block.querySelector('.f-size').value    = rawArray[hS];
+          if (hPr > -1 && rawArray[hPr] !== undefined) block.querySelector('.f-price').value   = rawArray[hPr];
+          if (hQ  > -1 && rawArray[hQ]  !== undefined) block.querySelector('.f-qty').value     = rawArray[hQ];
+          runPriceCheck(block.querySelector('.f-brand'));
       }
 
       function runPriceCheck(el) {
          var block = el.closest('.order-block');
          
-         var rawSize = block.querySelector('.f-size').value || '';
-         var cleanSize = rawSize.toLowerCase().replace(/g/g, ''); // Slice the 'g' for fuzzy matching
+         var rawSize  = block.querySelector('.f-size').value || '';
+         var cleanSize = rawSize.toLowerCase().replace(/g/g, '');
          
-         var terms = [ 
-             block.querySelector('.f-brand').value, 
-             block.querySelector('.f-product').value, 
-             cleanSize 
-         ].filter(Boolean).map(x => String(x).toLowerCase());
+         var terms = [
+             block.querySelector('.f-brand').value,
+             block.querySelector('.f-product').value,
+             cleanSize
+         ].filter(Boolean).map(function(x) { return String(x).toLowerCase(); });
          
          var min = 0;
          if (terms.length > 0) {
-             for(var i=0; i<_minPricesList.length; i++) {
+             for (var i = 0; i < _minPricesList.length; i++) {
                   var n = String(_minPricesList[i].name).toLowerCase();
-                  if(terms.every(t => n.includes(t))) { min = _minPricesList[i].min; break; }
+                  if (terms.every(function(t) { return n.includes(t); })) { min = _minPricesList[i].min; break; }
              }
          }
          
          var priceInp = block.querySelector('.f-price');
-         var qtyInp = block.querySelector('.f-qty');
+         var qtyInp   = block.querySelector('.f-qty');
          
-         // Fix Arabic numerals and comma to generic Latin validation form
-         var rVal = priceInp.value.replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[٫,]/g, '.');
+         var rVal = priceInp.value
+           .replace(/[٠-٩]/g, function(d) { return "٠١٢٣٤٥٦٧٨٩".indexOf(d); })
+           .replace(/[٫,]/g, '.');
          if (rVal !== priceInp.value) {
             var ss = priceInp.selectionStart, se = priceInp.selectionEnd;
             priceInp.value = rVal;
@@ -430,86 +555,101 @@
          var totBox = block.querySelector('.f-total');
          
          var pVal = parseFloat(priceInp.value) || 0;
-         var qVal = parseFloat(qtyInp.value) || 0;
+         var qVal = parseFloat(qtyInp.value)   || 0;
          
-         // Set Total box strictly to 2 decimal points
          if (pVal > 0 && qVal > 0) totBox.value = (pVal * qVal).toFixed(2);
          else totBox.value = '';
          
          if (min > 0) {
              minBox.value = min;
-             
-             var isBelowFloor = pVal > 0 && pVal < min;
+             var isBelowFloor  = pVal > 0 && pVal < min;
              var isBadDecimals = priceInp.value && !/^\d+(\.\d{1,2})?$/.test(priceInp.value);
-             
              if (isBelowFloor || isBadDecimals) priceInp.classList.add('invalid');
              else priceInp.classList.remove('invalid');
-         } else { 
-             minBox.value = ''; 
+         } else {
+             minBox.value = '';
              var isBadDecimals = priceInp.value && !/^\d+(\.\d{1,2})?$/.test(priceInp.value);
              if (isBadDecimals) priceInp.classList.add('invalid');
-             else priceInp.classList.remove('invalid'); 
+             else priceInp.classList.remove('invalid');
          }
       }
 
       function submitNewOrders(){
-        var rep = localStorage.getItem('mySalesRep');
+        var rep   = localStorage.getItem('mySalesRep');
         var rName = $('fRestaurant').value.trim();
-        if(!rName) { toast('حدد اسم المطعم أولاً', 'error'); return; }
+        if (!rName) { toast('حدد اسم المطعم أولاً', 'error'); return; }
         
-        var blocks = document.querySelectorAll('.order-block');
+        var blocks   = document.querySelectorAll('.order-block');
         var payloads = []; var errors = false;
         blocks.forEach(function(b){
-           var d = b.querySelector('.f-date').value, br = b.querySelector('.f-brand').value, pr = b.querySelector('.f-product').value;
-           var s = b.querySelector('.f-size').value, q = b.querySelector('.f-qty').value, unit = b.querySelector('.f-price').value;
-           if(!d || !br || !pr || !s || !q || !unit) errors = true;
-           payloads.push({ restaurantName: rName, lastOrderRaw: _activeLastOrderRaw || [], delivDate: d, brand: br, product: pr, size: s, qty: q, unitPrice: unit });
+           var d    = b.querySelector('.f-date').value;
+           var br   = b.querySelector('.f-brand').value;
+           var pr   = b.querySelector('.f-product').value;
+           var s    = b.querySelector('.f-size').value;
+           var q    = b.querySelector('.f-qty').value;
+           var unit = b.querySelector('.f-price').value;
+           if (!d || !br || !pr || !s || !q || !unit) errors = true;
+           payloads.push({
+             restaurantName: rName, lastOrderRaw: _activeLastOrderRaw || [],
+             delivDate: d, brand: br, product: pr, size: s, qty: q, unitPrice: unit
+           });
         });
         
-        if(errors) { toast('الرجاء تعبئة جميع الحقول!', 'error'); return; }
+        if (errors) { toast('الرجاء تعبئة جميع الحقول!', 'error'); return; }
         
         showOverlay('الحفظ في قاعدة البيانات...');
-        runGas('submitOrder', {rep: rep, payloads: payloads}, function(res, err){
+        runGas('submitOrder', { rep: rep, payloads: payloads }, function(res, err){
           hideOverlay();
-          if(err || !res.ok) { alert(err?err.message:res.message); return; }
-          toast('تم الفوترة بنجاح (#'+res.orderNumber+')', 'success');
-          loadDashboard(); loadLogs(); 
+          if (err || !res.ok) { alert(err ? err.message : res.message); return; }
+          toast('تم الفوترة بنجاح (#' + res.orderNumber + ')', 'success');
+          loadDashboard(); loadLogs();
         });
       }
 
       function submitNewRestaurant() {
         var rep = localStorage.getItem('mySalesRep');
-        var p = { name: $('nLoc').value, type: $('nType').value, systemUsed: $('nSys').value, consumption: $('nCons').value, branches: $('nBr').value, activeBranches: $('nAct').value };
-        if(!p.name) return toast('اسم المطعم مطلوب للإضافة', 'error');
+        var p = {
+          name: $('nLoc').value, type: $('nType').value,
+          systemUsed: $('nSys').value, consumption: $('nCons').value,
+          branches: $('nBr').value, activeBranches: $('nAct').value
+        };
+        if (!p.name) return toast('اسم المطعم مطلوب للإضافة', 'error');
         showOverlay('جاري الإضافة...');
-        runGas('addToCurrentRestaurantsList', {rep:rep, payload:p}, function(r, e){
+        runGas('addToCurrentRestaurantsList', { rep: rep, payload: p }, function(r, e){
            hideOverlay();
-           if(e || !r.ok) { alert(e?e.message:r.message); return; }
+           if (e || !r.ok) { alert(e ? e.message : r.message); return; }
            toast('تمت الإضافة للمراكز!');
-           ['nLoc','nType','nSys','nCons','nBr','nAct'].forEach(id => $(id).value = '');
+           ['nLoc','nType','nSys','nCons','nBr','nAct'].forEach(function(id) { $(id).value = ''; });
            loadDashboard(); loadLogs();
         });
       }
 
       function renderInvoices(rows){
         var wrap = $('invTableWrap');
-        if(!rows || rows.length === 0){ wrap.innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px">لا توجد فواتير متأخرة</p>'; return; }
+        if (!rows || rows.length === 0) {
+          wrap.innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px">لا توجد فواتير متأخرة</p>';
+          return;
+        }
         var html = '<table class="dist-table"><thead><tr><th>المطعم</th><th>رقم الفاتورة</th><th>المبلغ</th></tr></thead><tbody>';
-        rows.forEach(inv => html += '<tr><td>'+esc(inv.restaurant)+'</td><td>'+esc(inv.invoiceNo)+'</td><td>'+esc(inv.amount)+'</td></tr>');
+        rows.forEach(function(inv) {
+          html += '<tr><td>'+esc(inv.restaurant)+'</td><td>'+esc(inv.invoiceNo)+'</td><td>'+esc(inv.amount)+'</td></tr>';
+        });
         wrap.innerHTML = html + '</tbody></table>';
       }
 
       function loadLogs() {
         var rep = localStorage.getItem('mySalesRep');
-        if(!rep) return;
-        runGas('getRecentLogs', rep, function (r, err) {
+        if (!rep) return;
+        showLogsShimmer();
+        runGas('getRecentLogs', rep, function(r, err) {
             var wrap = $('logsWrap');
             if (err || !r || !r.ok || !r.logs || r.logs.length === 0) {
-              wrap.innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px">لا توجد سجلات بعد</p>'; return;
+              wrap.innerHTML = '<p style="color:var(--muted);text-align:center;font-size:13px">لا توجد سجلات بعد</p>';
+              return;
             }
             var html = '';
             for (var i = 0; i < r.logs.length; i++) {
-              var lg = r.logs[i];
+              var lg  = r.logs[i];
               var cls = lg.status === 'OK' ? 'ok' : 'err';
               html += '<div class="log-row"><div class="log-dot ' + cls + '"></div><div class="log-info">';
               html += '<strong>' + esc(lg.task) + '</strong><span class="details">' + esc(lg.details) + '</span></div>';
@@ -522,9 +662,9 @@
       function doClearLogs() {
         if (!confirm('هل تريد مسح جميع السجلات؟')) return;
         showOverlay('مسح السجل...');
-        runGas('clearLogs', null, function (r, e) {
+        runGas('clearLogs', null, function(r, e) {
             hideOverlay();
-            if (r && r.ok) { toast('تمت الإزالة', 'success'); loadLogs(); } 
+            if (r && r.ok) { toast('تمت الإزالة', 'success'); loadLogs(); }
             else toast('خطأ في إزالة السجل', 'error');
         });
       }
